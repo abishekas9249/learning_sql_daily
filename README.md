@@ -9,7 +9,7 @@ interview-oriented query writing.
 |---|---|---|
 | Day 01 | SQL Fundamentals | ✅ Completed |
 | Day 02 | Aggregate Functions | ✅ Completed |
-| Day 03 | GROUP BY & HAVING | ⏳ |
+| Day 03 | GROUP BY & HAVING | ✅ Completed |
 | Day 04 | Joins | ⏳ |
 | Day 05 | Subqueries | ⏳ |
 | Day 06 | CTE | ⏳ |
