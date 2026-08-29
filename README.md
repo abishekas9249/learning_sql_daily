@@ -6,11 +6,11 @@ interview-oriented query writing.
 ## Progress
 
 | Day | Topic | Status |
-|---|---|---|
-| Day 01 | SQL Fundamentals | ✅ Completed |
-| Day 02 | Aggregate Functions | ✅ Completed |
-| Day 03 | GROUP BY & HAVING | ✅ Completed |
-| Day 04 | Joins | ⏳ |
+|-----|-------|--------|
+| Day 01 | SQL Fundamentals | ✅ |
+| Day 02 | Aggregate Functions | ✅ |
+| Day 03 | GROUP BY & HAVING | ✅ |
+| Day 04 | JOINs | ✅ |
 | Day 05 | Subqueries | ⏳ |
 | Day 06 | CTE | ⏳ |
 | Day 07 | Window Functions | ⏳ |
