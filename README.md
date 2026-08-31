@@ -11,7 +11,7 @@ interview-oriented query writing.
 | Day 02 | Aggregate Functions | ✅ |
 | Day 03 | GROUP BY & HAVING | ✅ |
 | Day 04 | JOINs | ✅ |
-| Day 05 | Subqueries | ⏳ |
+| Day 05 | Subqueries | ✅ |
 | Day 06 | CTE | ⏳ |
 | Day 07 | Window Functions | ⏳ |
 

@@ -745,40 +745,5 @@ Overall: 7/10
    ORDER BY aggregate DESC + LIMIT 1.
 12. Tie-handling requires a more advanced approach.
 
----
 
-# Progress
 
-| Day | Topic | Status |
-|-----|-------|--------|
-| Day 01 | SQL Fundamentals | ✅ |
-| Day 02 | Aggregate Functions | ✅ |
-| Day 03 | GROUP BY & HAVING | ✅ |
-| Day 04 | JOINs | ✅ |
-| Day 05 | Subqueries | ⏳ |
-| Day 06 | CTE | ⏳ |
-| Day 07 | Window Functions | ⏳ |
-
----
-
-# Next Topic
-
-## Day 05 — Subqueries
-
-We'll learn:
-
-- Scalar subqueries
-- Single-row subqueries
-- Multi-row subqueries
-- `IN`
-- `NOT IN`
-- `EXISTS`
-- Correlated subqueries
-- Subquery with `WHERE`
-- Subquery with `FROM`
-- Subquery with aggregates
-- Second-highest salary
-- Employees above average salary
-- Highest salary by department
-
-The Day 03 and Day 04 mistakes around **highest average salary** and **highest employee count** will become much clearer on Day 05.
