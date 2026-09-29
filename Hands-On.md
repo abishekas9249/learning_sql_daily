@@ -1387,27 +1387,245 @@ CTE + JOIN
 > ALL (...)
 ```
 
+
+# SQL Hands-On Revision — Q26 to Q30
+
+## Q26. Departments with at least 2 employees
+
+### Question
+
+Find the number of employees in each department, but return only departments having **at least 2 employees**.
+
+### Solution
+
+```sql
+SELECT department,
+       COUNT(*) AS employee_count
+FROM employees
+GROUP BY department
+HAVING COUNT(*) >= 2;
+```
+
+### Key Concept
+
+```text
+GROUP BY → create department groups
+COUNT    → count employees
+HAVING   → filter groups
+```
+
+### Memory Trick
+
+> `WHERE` filters rows; `HAVING` filters groups.
+
 ---
 
-# Tomorrow's Recovery Plan
+## Q27. Employees earning more than the highest-paid HR employee
 
-Before moving to new SQL topics, continue with **mixed interview practice from Days 1–7**.
+### Question
 
-### Focus areas
+Find employees whose salary is **greater than the highest-paid employee in HR**.
 
-1. `GROUP BY + HAVING`
-2. JOIN decision-making
-3. Scalar vs multi-row subqueries
-4. Correlated subqueries
-5. CTE + JOIN
-6. `ROW_NUMBER` vs `RANK` vs `DENSE_RANK`
-7. Top-N per group
-8. Nth-highest problems
-9. `ALL` / `ANY`
-10. Running totals and window ordering
+### Solution
 
-### Rule for tomorrow
+```sql
+SELECT name,
+       department,
+       salary
+FROM employees
+WHERE salary > (
+    SELECT MAX(salary)
+    FROM employees
+    WHERE department = 'HR'
+);
+```
 
-> **No concept will be given in the question. You decide the SQL approach first.**
+### Key Concept
 
-Only after the recovery practice is strong should we move to the next new SQL topics.
+The subquery returns one value:
+
+```sql
+MAX(salary)
+```
+
+Then every employee's salary is compared against that value.
+
+### Memory Trick
+
+> "Greater than the highest" → `> MAX(...)`
+
+> SQL string values use **single quotes**: `'HR'`
+
+---
+
+## Q28. Lowest-paid employee in each department, including ties
+
+### Question
+
+Find the **lowest-paid employee in each department**, including employees who have the same lowest salary.
+
+### Solution
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary ASC
+           ) AS rnk
+    FROM employees
+) e
+WHERE rnk = 1;
+```
+
+### Key Concept
+
+```text
+PARTITION BY department
+→ ranking restarts for every department
+
+ORDER BY salary ASC
+→ lowest salary first
+
+RANK()
+→ includes ties
+
+rnk = 1
+→ lowest-paid employees
+```
+
+### Memory Trick
+
+> Lowest per group + ties → `RANK() + PARTITION BY + ASC`
+
+---
+
+## Q29. Third-highest distinct salary in each department
+
+### Question
+
+Find the **third-highest distinct salary in each department** and return all employees earning that salary.
+
+### Solution
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           DENSE_RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS drnk
+    FROM employees
+) e
+WHERE drnk = 3;
+```
+
+### Key Concept
+
+```text
+DENSE_RANK()
+→ same salary gets same rank
+→ no gaps between distinct salary levels
+```
+
+Example:
+
+```text
+90000 → 1
+80000 → 2
+80000 → 2
+70000 → 3
+```
+
+Therefore:
+
+```sql
+WHERE drnk = 3
+```
+
+returns the **third-highest distinct salary**.
+
+### Memory Trick
+
+> Nth-highest distinct per group → `DENSE_RANK()`
+
+---
+
+## Q30. Employees above department average with department average displayed
+
+### Question
+
+Find every employee whose salary is **above the average salary of their department**, and also display the **department average salary** alongside each employee.
+
+Return:
+
+```text
+name, department, salary, department_average
+```
+
+### Solution
+
+```sql
+SELECT name,
+       department,
+       salary,
+       AVG(salary) OVER (
+           PARTITION BY department
+       ) AS department_average
+FROM employees e
+WHERE salary > (
+    SELECT AVG(ed.salary)
+    FROM employees ed
+    WHERE ed.department = e.department
+);
+```
+
+### Key Concepts
+
+Two concepts are used together:
+
+**1. Correlated subquery**
+
+```sql
+SELECT AVG(ed.salary)
+FROM employees ed
+WHERE ed.department = e.department
+```
+
+Finds the average for the employee's **own department**.
+
+**2. Window function**
+
+```sql
+AVG(salary) OVER (
+    PARTITION BY department
+)
+```
+
+Displays the department average **without collapsing employee rows**.
+
+### Important Interview Difference
+
+```text
+GROUP BY
+→ collapses rows into groups
+
+PARTITION BY
+→ keeps individual rows and performs calculations within groups
+```
+
+### Memory Trick
+
+> Need one row per group → `GROUP BY`
+
+> Need the group calculation alongside every row → `PARTITION BY`
