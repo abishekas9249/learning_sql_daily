@@ -1,10 +1,6 @@
 # SQL Hands-On Interview Revision
 
-> **Goal:** Solve unfamiliar SQL problems by identifying the correct approach, not by memorizing queries.
-
----
-
-# Practice Table
+## Base Table
 
 ```sql
 employees (
@@ -28,45 +24,7 @@ employees (
 
 ---
 
-# JOIN Practice Tables
-
-For JOIN questions, use:
-
-### `employees`
-
-| id | name   | department_id | salary |
-| -: | ------ | ------------: | -----: |
-|  1 | Arun   |           101 |  60000 |
-|  2 | Bala   |           102 |  45000 |
-|  3 | Charan |           101 |  75000 |
-|  4 | Divya  |           103 |  80000 |
-|  5 | Esha   |           102 |  50000 |
-|  6 | Farhan |           101 |  65000 |
-|  7 | Gokul  |           103 |  70000 |
-|  8 | Hari   |           103 |  90000 |
-
-### `departments`
-
-| department_id | department_name | location  |
-| ------------: | --------------- | --------- |
-|           101 | IT              | Chennai   |
-|           102 | HR              | Bangalore |
-|           103 | Finance         | Mumbai    |
-|           104 | Marketing       | Delhi     |
-
-Relationship:
-
-```text
-employees.department_id
-        ↓
-departments.department_id
-```
-
----
-
-# Core SQL Patterns
-
-## 1. Filtering
+# 1. Employees earning above 60,000
 
 ```sql
 SELECT name, department, salary
@@ -74,15 +32,11 @@ FROM employees
 WHERE salary > 60000;
 ```
 
-### Pattern
-
-```text
-WHERE → filters individual rows
-```
+**Pattern:** `WHERE` filters rows.
 
 ---
 
-# 2. GROUP BY + COUNT
+# 2. Employee count by department
 
 ```sql
 SELECT department,
@@ -92,16 +46,11 @@ GROUP BY department
 ORDER BY employee_count DESC;
 ```
 
-### Pattern
-
-```text
-GROUP BY → one result per group
-COUNT(*) → count rows
-```
+**Pattern:** `GROUP BY` creates one result per group.
 
 ---
 
-# 3. GROUP BY + HAVING
+# 3. Departments with average salary above 60,000
 
 ```sql
 SELECT department,
@@ -111,36 +60,31 @@ GROUP BY department
 HAVING AVG(salary) > 60000;
 ```
 
-### Pattern
+**Mistake:** Using `WHERE` for aggregate filtering.
 
-```text
-WHERE  → filters rows
-HAVING → filters groups
-```
+**Memory:**
+`WHERE → rows`
+`HAVING → groups`
 
 ---
 
 # 4. Second-highest distinct salary
 
 ```sql
-SELECT name, department, salary
+SELECT DISTINCT salary
 FROM employees
-WHERE salary = (
-    SELECT DISTINCT salary
-    FROM employees
-    ORDER BY salary DESC
-    OFFSET 1
-    LIMIT 1
-);
+ORDER BY salary DESC
+OFFSET 1
+LIMIT 1;
 ```
 
-### Pattern
+**Pattern:**
 
 ```text
 DISTINCT
 → remove duplicate salaries
 
-ORDER BY DESC
+DESC
 → highest first
 
 OFFSET 1
@@ -150,38 +94,55 @@ LIMIT 1
 → take second
 ```
 
-### Memory
-
-```text
-Nth-highest
-→ OFFSET N-1
-→ LIMIT 1
-```
+**Memory:** `OFFSET = skip`, `LIMIT = take`.
 
 ---
 
 # 5. Third-highest distinct salary
 
 ```sql
-SELECT name, department, salary
+SELECT DISTINCT salary
 FROM employees
-WHERE salary = (
-    SELECT DISTINCT salary
-    FROM employees
-    ORDER BY salary DESC
-    OFFSET 2
-    LIMIT 1
-);
+ORDER BY salary DESC
+OFFSET 2
+LIMIT 1;
 ```
+
+**Pattern:** `Nth highest → OFFSET N-1 + LIMIT 1`
 
 ---
 
-# 6. Employees above overall average
+# 6. Fourth-highest distinct salary
 
 ```sql
-SELECT name,
-       department,
-       salary
+SELECT DISTINCT salary
+FROM employees
+ORDER BY salary DESC
+OFFSET 3
+LIMIT 1;
+```
+
+**Important:** `LIMIT 2` means two rows, **not second-highest**.
+
+---
+
+# 7. Highest-paid employee overall
+
+```sql
+SELECT name, department, salary
+FROM employees
+ORDER BY salary DESC
+LIMIT 1;
+```
+
+**Pattern:** Overall Top-N → `ORDER BY + LIMIT`.
+
+---
+
+# 8. Employees above overall average salary
+
+```sql
+SELECT name, department, salary
 FROM employees
 WHERE salary > (
     SELECT AVG(salary)
@@ -189,18 +150,92 @@ WHERE salary > (
 );
 ```
 
-### Pattern
+**Concept:** Scalar subquery.
+
+The subquery returns exactly one value.
+
+---
+
+# 9. Employees earning more than every HR employee
+
+```sql
+SELECT name, department, salary
+FROM employees
+WHERE salary > ALL (
+    SELECT salary
+    FROM employees
+    WHERE department = 'HR'
+);
+```
+
+**Pattern:**
 
 ```text
-Subquery returns one value
-→ scalar subquery
+> ALL → greater than every returned value
+> ANY → greater than at least one returned value
 ```
 
 ---
 
-# 7. Employees above their own department average
+# 10. Employees earning more than the highest HR salary
 
-### Correlated subquery
+```sql
+SELECT name, department, salary
+FROM employees
+WHERE salary > (
+    SELECT MAX(salary)
+    FROM employees
+    WHERE department = 'HR'
+);
+```
+
+**Pattern:**
+"Greater than the highest" → `> MAX(...)`
+
+---
+
+# 11. Employees earning more than ANY Finance employee
+
+```sql
+SELECT name, department, salary
+FROM employees
+WHERE salary > ANY (
+    SELECT salary
+    FROM employees
+    WHERE department = 'Finance'
+);
+```
+
+**Memory:**
+
+```text
+ALL → every value
+ANY → at least one value
+```
+
+---
+
+# 12. Employees earning above their own department average
+
+### CTE solution
+
+```sql
+WITH department_avg AS (
+    SELECT department,
+           AVG(salary) AS average_salary
+    FROM employees
+    GROUP BY department
+)
+SELECT e.name,
+       e.department,
+       e.salary
+FROM employees e
+JOIN department_avg da
+    ON e.department = da.department
+WHERE e.salary > da.average_salary;
+```
+
+### Correlated subquery solution
 
 ```sql
 SELECT name,
@@ -214,38 +249,413 @@ WHERE salary > (
 );
 ```
 
-### CTE + JOIN alternative
+**Important mistake:**
 
 ```sql
-WITH department_avg AS (
-    SELECT department,
-           AVG(salary) AS avg_salary
-    FROM employees
-    GROUP BY department
-)
-SELECT e.name,
-       e.department,
-       e.salary
-FROM employees e
-JOIN department_avg d
-    ON e.department = d.department
-WHERE e.salary > d.avg_salary;
+SELECT AVG(salary)
+FROM employees
+GROUP BY department
 ```
 
-### Pattern
+returns multiple values, so it cannot directly be compared with:
+
+```sql
+salary > (...)
+```
+
+**Memory:**
+Own department → correlated subquery or CTE + JOIN.
+
+---
+
+# 13. Highest-paid employee in each department, including ties
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS rnk
+    FROM employees
+) x
+WHERE rnk = 1;
+```
+
+**Pattern:**
 
 ```text
-Own department average
-→ correlated subquery
-OR
-→ CTE + JOIN
+Per department
++ highest
++ include ties
+
+→ RANK()
+→ PARTITION BY department
+→ rnk = 1
 ```
 
 ---
 
-# 8. Above department average + display department average
+# 14. Lowest-paid employee in each department, including ties
 
-This was an important **Q37 recovery**.
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary ASC
+           ) AS rnk
+    FROM employees
+) x
+WHERE rnk = 1;
+```
+
+**Memory:**
+Highest → `DESC`
+Lowest → `ASC`
+
+---
+
+# 15. Top 2 employees from each department, including ties
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS rnk
+    FROM employees
+) x
+WHERE rnk <= 2;
+```
+
+**Important mistake:**
+
+```sql
+LIMIT 2
+```
+
+returns only two rows overall.
+
+For Top-N **per department**:
+
+```text
+PARTITION BY department
++
+RANK()
+```
+
+---
+
+# 16. Second-highest distinct salary per department
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           DENSE_RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS drnk
+    FROM employees
+) x
+WHERE drnk = 2;
+```
+
+**Memory:**
+Nth-highest **distinct** per group → `DENSE_RANK()`.
+
+---
+
+# 17. Third-highest distinct salary per department
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           DENSE_RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS drnk
+    FROM employees
+) x
+WHERE drnk = 3;
+```
+
+---
+
+# 18. Third-ranked employee per department using RANK
+
+```sql
+SELECT department,
+       name,
+       salary
+FROM (
+    SELECT department,
+           name,
+           salary,
+           RANK() OVER (
+               PARTITION BY department
+               ORDER BY salary DESC
+           ) AS rnk
+    FROM employees
+) x
+WHERE rnk = 3;
+```
+
+### RANK vs DENSE_RANK
+
+```text
+Salaries: 100, 90, 90, 80
+
+RANK:
+100 → 1
+90  → 2
+90  → 2
+80  → 4
+
+DENSE_RANK:
+100 → 1
+90  → 2
+90  → 2
+80  → 3
+```
+
+**Memory:**
+
+```text
+RANK → ties + gaps
+DENSE_RANK → ties + no gaps
+ROW_NUMBER → unique number
+```
+
+---
+
+# 19. Running total of salaries
+
+```sql
+SELECT name,
+       salary,
+       SUM(salary) OVER (
+           ORDER BY salary
+       ) AS running_total
+FROM employees;
+```
+
+**Pattern:**
+
+```text
+Running total
+→ SUM() OVER(ORDER BY ...)
+```
+
+**Mistake:** Using `GROUP BY` for a running total.
+
+---
+
+# 20. Departments with at least 2 employees
+
+```sql
+SELECT department,
+       COUNT(*) AS employee_count
+FROM employees
+GROUP BY department
+HAVING COUNT(*) >= 2;
+```
+
+**Pattern:** Aggregate result filtering → `HAVING`.
+
+---
+
+# 21. Department with highest average salary
+
+```sql
+SELECT department,
+       AVG(salary) AS average_salary
+FROM employees
+GROUP BY department
+ORDER BY average_salary DESC
+LIMIT 1;
+```
+
+**Pattern:**
+
+```text
+GROUP BY
+→ AVG
+→ ORDER BY DESC
+→ LIMIT 1
+```
+
+---
+
+# 22. Department with highest total salary
+
+```sql
+SELECT department,
+       SUM(salary) AS total_salary
+FROM employees
+GROUP BY department
+ORDER BY total_salary DESC
+LIMIT 1;
+```
+
+**Pattern:** Aggregate first, then sort.
+
+---
+
+# 23. Departments with total salary above 150,000
+
+```sql
+SELECT department,
+       SUM(salary) AS total_salary
+FROM employees
+GROUP BY department
+HAVING SUM(salary) > 150000;
+```
+
+**Memory:**
+
+```text
+SUM + filter
+→ GROUP BY + HAVING
+```
+
+---
+
+# 24. Second-highest department by total salary
+
+```sql
+SELECT department,
+       total_salary
+FROM (
+    SELECT department,
+           total_salary,
+           DENSE_RANK() OVER (
+               ORDER BY total_salary DESC
+           ) AS drnk
+    FROM (
+        SELECT department,
+               SUM(salary) AS total_salary
+        FROM employees
+        GROUP BY department
+    ) x
+) ranked
+WHERE drnk = 2;
+```
+
+**Critical pattern:**
+
+```text
+Employee rows
+    ↓
+GROUP BY department
+    ↓
+SUM(salary)
+    ↓
+DENSE_RANK departments
+    ↓
+drnk = 2
+```
+
+**Important mistake:**
+
+Do **not** use:
+
+```sql
+PARTITION BY department
+```
+
+when ranking departments against each other.
+
+**Memory:**
+
+```text
+Employees within department
+→ PARTITION BY department
+
+Departments against each other
+→ NO PARTITION BY
+```
+
+---
+
+# 25. Employees above department average AND overall average
+
+```sql
+SELECT name,
+       department,
+       salary
+FROM employees e
+WHERE salary > (
+    SELECT AVG(e2.salary)
+    FROM employees e2
+    WHERE e2.department = e.department
+)
+AND salary > (
+    SELECT AVG(salary)
+    FROM employees
+);
+```
+
+**Concepts combined:**
+
+```text
+Correlated subquery
++
+Scalar subquery
++
+AND
+```
+
+---
+
+# 26. Employees in the same department as Arun
+
+```sql
+SELECT name,
+       department,
+       salary
+FROM employees
+WHERE department = (
+    SELECT department
+    FROM employees
+    WHERE name = 'Arun'
+);
+```
+
+**Concept:** Scalar subquery.
+
+**Memory:**
+Find Arun's department first → use it in outer query.
+
+---
+
+# 27. Above department average with average displayed
 
 ```sql
 SELECT name,
@@ -262,404 +672,259 @@ WHERE salary > (
 );
 ```
 
-### Important distinction
-
-If we need:
+**Important concept:**
 
 ```text
-One result per department
+GROUP BY
+→ collapses rows
+
+PARTITION BY
+→ keeps employee rows
 ```
 
-use:
+---
 
-```sql
-GROUP BY department
-```
+# 28. Employee + Department details
 
-If we need:
+## JOIN Tables
+
+### departments
 
 ```text
-Every employee + department calculation
+department_id | department_name | location
+101           | IT              | Chennai
+102           | HR              | Bangalore
+103           | Finance         | Mumbai
+104           | Marketing       | Delhi
 ```
 
-use:
+### employees JOIN version
+
+```text
+id | name   | department_id | salary
+1  | Arun   | 101           | 60000
+2  | Bala   | 102           | 45000
+3  | Charan | 101           | 75000
+4  | Divya  | 103           | 80000
+5  | Esha   | 102           | 50000
+6  | Farhan | 101           | 65000
+7  | Gokul  | 103           | 70000
+8  | Hari   | 103           | 90000
+```
+
+### Question
+
+Return:
+
+```text
+name
+department_name
+location
+salary
+```
+
+### Solution
 
 ```sql
-AVG(salary) OVER (
-    PARTITION BY department
+SELECT e.name,
+       d.department_name,
+       d.location,
+       e.salary
+FROM employees e
+INNER JOIN departments d
+    ON e.department_id = d.department_id;
+```
+
+**Mistake to remember:**
+
+Never forget the JOIN relationship:
+
+```sql
+ON e.department_id = d.department_id
+```
+
+---
+
+# 29. Employee count including departments with zero employees
+
+```sql
+SELECT d.department_name,
+       COUNT(e.id) AS employee_count
+FROM departments d
+LEFT JOIN employees e
+    ON e.department_id = d.department_id
+GROUP BY d.department_id,
+         d.department_name;
+```
+
+**Why LEFT JOIN?**
+
+Marketing has no employees but must still appear:
+
+```text
+Marketing → 0
+```
+
+**Why `COUNT(e.id)`?**
+
+Because unmatched employees have:
+
+```text
+e.id = NULL
+```
+
+and `COUNT(e.id)` returns `0`.
+
+**Memory:**
+
+```text
+Need all departments
+→ LEFT JOIN
+
+Need zero count
+→ COUNT(employee.id)
+```
+
+---
+
+# 30. Department total salary above 150,000 with department name
+
+```sql
+SELECT d.department_name,
+       SUM(e.salary) AS total_salary
+FROM employees e
+INNER JOIN departments d
+    ON e.department_id = d.department_id
+GROUP BY d.department_id,
+         d.department_name
+HAVING SUM(e.salary) > 150000;
+```
+
+**Pattern:**
+
+```text
+JOIN
+→ GROUP BY
+→ SUM
+→ HAVING
+```
+
+---
+
+# 31. Above department average + department name + average
+
+```sql
+WITH department_avg AS (
+    SELECT department_id,
+           AVG(salary) AS department_average
+    FROM employees
+    GROUP BY department_id
 )
+SELECT e.name,
+       d.department_name,
+       e.salary,
+       da.department_average
+FROM employees e
+JOIN departments d
+    ON e.department_id = d.department_id
+JOIN department_avg da
+    ON e.department_id = da.department_id
+WHERE e.salary > da.department_average;
 ```
 
-### Memory
+**Concepts combined:**
 
-> **GROUP BY collapses rows. Window functions preserve rows.**
+```text
+JOIN
++
+CTE
++
+GROUP BY
++
+AVG
++
+WHERE
+```
+
+**Mistake to remember:**
+Salary comes from `employees`, not `departments`.
 
 ---
 
-# 9. Highest-paid employee in each department — including ties
+# 32. Second-highest department total salary with department name
 
 ```sql
-SELECT department,
-       name,
-       salary
+SELECT department_name,
+       total_salary
 FROM (
-    SELECT department,
-           name,
-           salary,
-           RANK() OVER (
-               PARTITION BY department
-               ORDER BY salary DESC
-           ) AS rnk
-    FROM employees
-) e
-WHERE rnk = 1;
-```
-
-### Pattern
-
-```text
-Highest per group + ties
-→ RANK()
-→ PARTITION BY department
-→ rnk = 1
-```
-
----
-
-# 10. Top 2 employees from each department — including ties
-
-```sql
-SELECT department,
-       name,
-       salary
-FROM (
-    SELECT department,
-           name,
-           salary,
-           RANK() OVER (
-               PARTITION BY department
-               ORDER BY salary DESC
-           ) AS rnk
-    FROM employees
-) e
-WHERE rnk <= 2;
-```
-
-### Important
-
-```text
-LIMIT 2
-→ top 2 overall
-
-RANK() + PARTITION BY
-→ top 2 per department
-```
-
----
-
-# 11. Third-highest employee in each department — including ties
-
-### Today's Q39
-
-```sql
-SELECT department,
-       name,
-       salary
-FROM (
-    SELECT department,
-           name,
-           salary,
-           RANK() OVER (
-               PARTITION BY department
-               ORDER BY salary DESC
-           ) AS rnk
-    FROM employees
-) e
-WHERE rnk = 3;
-```
-
-### Why RANK?
-
-The question says:
-
-> Include ties.
-
-Therefore:
-
-```text
-RANK()
-```
-
-### Comparison
-
-```text
-ROW_NUMBER()
-→ unique position
-
-RANK()
-→ ties + gaps
-
-DENSE_RANK()
-→ ties + no gaps
-```
-
----
-
-# 12. Nth-highest distinct salary per department
-
-Use `DENSE_RANK()`.
-
-```sql
-SELECT department,
-       name,
-       salary
-FROM (
-    SELECT department,
-           name,
-           salary,
+    SELECT department_name,
+           total_salary,
            DENSE_RANK() OVER (
-               PARTITION BY department
-               ORDER BY salary DESC
-           ) AS rnk
-    FROM employees
-) e
-WHERE rnk = 2;
+               ORDER BY total_salary DESC
+           ) AS drnk
+    FROM (
+        SELECT d.department_name,
+               SUM(e.salary) AS total_salary
+        FROM employees e
+        INNER JOIN departments d
+            ON e.department_id = d.department_id
+        GROUP BY d.department_id,
+                 d.department_name
+    ) x
+) ranked
+WHERE drnk = 2;
 ```
 
-For third-highest:
-
-```sql
-WHERE rnk = 3;
-```
-
-### Pattern
+**Mental model:**
 
 ```text
-Nth-highest distinct per group
-→ DENSE_RANK()
-→ PARTITION BY department
-```
-
----
-
-# 13. Employees earning more than every HR employee
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees
-WHERE salary > ALL (
-    SELECT salary
-    FROM employees
-    WHERE department = 'HR'
-);
-```
-
-### Pattern
-
-```text
-> ALL
-→ greater than every returned value
-```
-
----
-
-# 14. Employees earning more than at least one Finance employee
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees
-WHERE salary > ANY (
-    SELECT salary
-    FROM employees
-    WHERE department = 'Finance'
-);
-```
-
-### Pattern
-
-```text
-> ANY
-→ greater than at least one returned value
-```
-
-### Memory
-
-```text
-> ALL
-→ every value
-
-> ANY
-→ at least one value
-```
-
----
-
-# 15. Highest-paid employee overall
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees
-ORDER BY salary DESC
-LIMIT 1;
-```
-
-### Pattern
-
-```text
-Highest overall
-→ ORDER BY DESC
-→ LIMIT 1
-```
-
----
-
-# 16. Lowest-paid employee in each department
-
-```sql
-SELECT department,
-       name,
-       salary
-FROM (
-    SELECT department,
-           name,
-           salary,
-           RANK() OVER (
-               PARTITION BY department
-               ORDER BY salary ASC
-           ) AS rnk
-    FROM employees
-) e
-WHERE rnk = 1;
-```
-
----
-
-# 17. Departments with at least 2 employees
-
-```sql
-SELECT department,
-       COUNT(*) AS employee_count
-FROM employees
+JOIN
+ ↓
 GROUP BY department
-HAVING COUNT(*) >= 2;
+ ↓
+SUM salary
+ ↓
+DENSE_RANK
+ ↓
+rank = 2
 ```
+
+**Memory:**
+**Aggregate first → rank second.**
 
 ---
 
-# 18. Departments with average salary above overall company average
+# 33. Employees above both department and company averages
 
 ```sql
-SELECT department,
-       AVG(salary) AS department_average
-FROM employees
-GROUP BY department
-HAVING AVG(salary) > (
+SELECT e.name,
+       e.department,
+       e.salary
+FROM employees e
+WHERE e.salary > (
+    SELECT AVG(e2.salary)
+    FROM employees e2
+    WHERE e2.department = e.department
+)
+AND e.salary > (
     SELECT AVG(salary)
     FROM employees
 );
 ```
 
-### Pattern
+**Note:** This is intentionally retained because it combines two different subquery types:
 
 ```text
-Department average
-→ GROUP BY department
-
-Overall average
-→ scalar subquery
-
-Compare aggregates
-→ HAVING
-```
-
-### Important
-
-Do not use a window-function alias directly in `WHERE`.
-
----
-
-# 19. Employees earning more than highest-paid HR employee
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees
-WHERE salary > (
-    SELECT MAX(salary)
-    FROM employees
-    WHERE department = 'HR'
-);
-```
-
-### Pattern
-
-```text
-Greater than highest
-→ > MAX(...)
+Department average → correlated
+Overall average → scalar
 ```
 
 ---
 
-# 20. Running total
+# 34. Highest-paid employee above department average
 
 ```sql
-SELECT name,
-       salary,
-       SUM(salary) OVER (
-           ORDER BY salary
-       ) AS running_total
-FROM employees;
-```
-
-### Pattern
-
-```text
-Running total
-→ SUM() OVER (ORDER BY ...)
-```
-
----
-
-# 21. Top 2 employees with unique positions
-
-```sql
-SELECT department,
-       name,
-       salary,
-       rn AS position
-FROM (
-    SELECT department,
-           name,
-           salary,
-           ROW_NUMBER() OVER (
-               PARTITION BY department
-               ORDER BY salary DESC
-           ) AS rn
-    FROM employees
-) e
-WHERE rn <= 2;
-```
-
-### Pattern
-
-```text
-ROW_NUMBER()
-→ unique position
-```
-
----
-
-# 22. Above department average + highest qualifying employee
-
-```sql
-WITH above_average AS (
+WITH above_avg AS (
     SELECT name,
            department,
            salary
@@ -681,682 +946,71 @@ FROM (
                PARTITION BY department
                ORDER BY salary DESC
            ) AS drnk
-    FROM above_average
-) e
+    FROM above_avg
+) x
 WHERE drnk = 1;
 ```
 
-### Pattern
+**Pattern:**
 
 ```text
-Filter first
-→ employees above department average
-
-Rank second
-→ highest qualifying employee
+Filter above average
+→ Rank
+→ Highest
 ```
 
----
-
-# 23. Department with highest total salary
-
-### Q31 / Q38 recovery pattern
-
-First aggregate:
-
-```sql
-SELECT department,
-       SUM(salary) AS total_salary
-FROM employees
-GROUP BY department;
-```
-
-Then rank the departments:
-
-```sql
-SELECT department,
-       total_salary,
-       DENSE_RANK() OVER (
-           ORDER BY total_salary DESC
-       ) AS drnk
-FROM (
-    SELECT department,
-           SUM(salary) AS total_salary
-    FROM employees
-    GROUP BY department
-) d;
-```
-
-To get the highest:
-
-```sql
-SELECT department,
-       total_salary
-FROM (
-    SELECT department,
-           total_salary,
-           DENSE_RANK() OVER (
-               ORDER BY total_salary DESC
-           ) AS drnk
-    FROM (
-        SELECT department,
-               SUM(salary) AS total_salary
-        FROM employees
-        GROUP BY department
-    ) d
-) ranked
-WHERE drnk = 1;
-```
-
-### Critical pattern
-
-```text
-GROUP BY
-    ↓
-SUM
-    ↓
-RANK/DENSE_RANK
-    ↓
-Filter rank
-```
-
-### Important
-
-When ranking departments against each other:
-
-```text
-❌ PARTITION BY department
-
-✅ No PARTITION BY
-```
-
-### Memory
-
-> **Ranking employees inside groups → PARTITION BY.**
-
-> **Ranking the groups themselves → no PARTITION BY.**
-
----
-
-# 24. Department with second-highest total salary
-
-### Today's Q38
-
-```sql
-SELECT department,
-       total_salary
-FROM (
-    SELECT department,
-           total_salary,
-           DENSE_RANK() OVER (
-               ORDER BY total_salary DESC
-           ) AS drnk
-    FROM (
-        SELECT department,
-               SUM(salary) AS total_salary
-        FROM employees
-        GROUP BY department
-    ) d
-) ranked
-WHERE drnk = 2;
-```
-
-### Critical thinking
-
-The question is:
-
-> Second-highest **department total**
-
-NOT:
-
-> Second-highest employee salary in each department.
-
-Therefore:
-
-```text
-Employees
-    ↓
-GROUP BY department
-    ↓
-SUM(salary)
-    ↓
-Rank departments
-    ↓
-drnk = 2
-```
-
-### Mistake from Q38
-
-Incorrect:
-
-```sql
-DENSE_RANK() OVER (
-    PARTITION BY department
-    ORDER BY SUM(salary) DESC
-)
-```
-
-Why?
-
-Because this ranks employees **inside each department**.
-
-We need to rank the **departments against each other**.
-
----
-
-# 25. Employees in the same department as Arun
-
-### Today's Q36
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees
-WHERE department = (
-    SELECT department
-    FROM employees
-    WHERE name = 'Arun'
-);
-```
-
-### Pattern
-
-```text
-Find Arun's department
-        ↓
-Use that single value
-        ↓
-Find employees in same department
-```
-
-### Memory
-
-> **Same as one employee → scalar subquery.**
-
----
-
-# 26. Above department average AND above overall average
-
-### Today's Q40
-
-```sql
-SELECT name,
-       department,
-       salary
-FROM employees e
-WHERE salary > (
-    SELECT AVG(e2.salary)
-    FROM employees e2
-    WHERE e2.department = e.department
-)
-AND salary > (
-    SELECT AVG(salary)
-    FROM employees
-);
-```
-
-### Pattern
-
-Condition 1:
-
-```text
-Salary > own department average
-```
-
-→ correlated subquery
-
-Condition 2:
-
-```text
-Salary > overall average
-```
-
-→ scalar subquery
-
-Combine:
-
-```text
-AND
-```
-
----
-
-# SQL Mistake Log
-
-## Mistake 1 — LIMIT 2 for second-highest
-
-### Wrong
-
-```sql
-LIMIT 2
-```
-
-### Correct
-
-```sql
-ORDER BY salary DESC
-OFFSET 1
-LIMIT 1;
-```
-
-### Memory
-
-> `LIMIT` = number of rows to take.
-> `OFFSET` = number of rows to skip.
-
----
-
-## Mistake 2 — LIMIT for Top-N per department
-
-### Wrong
-
-```sql
-ORDER BY salary DESC
-LIMIT 2;
-```
-
-### Correct
-
-```sql
-RANK() OVER (
-    PARTITION BY department
-    ORDER BY salary DESC
-)
-```
-
-### Memory
-
-> LIMIT = overall.
-> PARTITION = per group.
-
----
-
-## Mistake 3 — Scalar comparison with multi-row subquery
-
-### Wrong
-
-```sql
-WHERE salary > (
-    SELECT AVG(salary)
-    FROM employees
-    GROUP BY department
-);
-```
-
-The subquery returns multiple averages.
-
-### Correct
-
-Use:
-
-```text
-Correlated subquery
-```
-
-or:
-
-```text
-CTE + JOIN
-```
-
-or `ALL` / `ANY` where appropriate.
-
-### Memory
-
-> `=` / `>` / `<` with a subquery generally expects one value.
-
----
-
-## Mistake 4 — GROUP BY when individual rows are required
-
-### Wrong
-
-```sql
-AVG(salary)
-GROUP BY department
-```
-
-when we need every employee.
-
-### Correct
-
-```sql
-AVG(salary) OVER (
-    PARTITION BY department
-)
-```
-
-### Memory
-
-> **GROUP BY collapses. Window functions preserve rows.**
-
----
-
-## Mistake 5 — Ranking groups with PARTITION BY
-
-### Wrong
-
-```sql
-DENSE_RANK() OVER (
-    PARTITION BY department
-    ORDER BY total_salary DESC
-)
-```
-
-when ranking departments against each other.
-
-### Correct
-
-```sql
-DENSE_RANK() OVER (
-    ORDER BY total_salary DESC
-)
-```
-
-### Memory
-
-> **Ranking employees inside groups → PARTITION BY.**
-
-> **Ranking groups themselves → no PARTITION BY.**
-
----
-
-## Mistake 6 — Ranking before aggregation
-
-### Wrong thinking
-
-```text
-Rank employees
-→ calculate department total
-```
-
-### Correct
-
-```text
-GROUP BY department
-→ SUM(salary)
-→ RANK/DENSE_RANK
-→ filter rank
-```
-
-### Memory
-
-> **Aggregate first → rank second.**
-
----
-
-## Mistake 7 — Using ROW_NUMBER when ties must be included
-
-If the question says:
-
-> Include ties.
-
-Use:
-
-```sql
-RANK()
-```
-
-not:
-
-```sql
-ROW_NUMBER()
-```
-
----
-
-## Mistake 8 — RANK vs DENSE_RANK
-
-### RANK
-
-```text
-100 → 1
-90  → 2
-90  → 2
-80  → 4
-```
-
-### DENSE_RANK
-
-```text
-100 → 1
-90  → 2
-90  → 2
-80  → 3
-```
-
-### Memory
-
-> RANK → gaps.
-
-> DENSE_RANK → no gaps.
-
----
-
-## Mistake 9 — Unnecessary GROUP BY with window functions
-
-If individual employee rows are required, don't add:
-
-```sql
-GROUP BY department
-```
-
-just because a window function uses:
-
-```sql
-PARTITION BY department
-```
-
-`PARTITION BY` does **not** require `GROUP BY`.
-
----
-
-## Mistake 10 — SELECT alias in WHERE
-
-### Wrong
-
-```sql
-SELECT AVG(salary) OVER (...) AS department_average
-FROM employees
-WHERE department_average > ...;
-```
-
-### Problem
-
-The SELECT alias is not available to `WHERE` at that stage.
-
-### Correct
-
-Use a:
-
-```text
-CTE
-```
-
-or:
-
-```text
-subquery
-```
-
-or restructure using `GROUP BY + HAVING`.
-
----
-
-## Mistake 11 — Unnecessary JOIN after ranking
-
-If the ranked result already contains:
-
-```text
-department
-name
-salary
-rank
-```
-
-don't JOIN back to `employees` just to retrieve the same information.
-
-### Memory
-
-> If the current result already contains what you need, don't add another JOIN.
-
----
-
-## Mistake 12 — Wrong string quotation
-
-### Wrong
-
-```sql
-WHERE department = "HR";
-```
-
-### Correct
-
-```sql
-WHERE department = 'HR';
-```
-
-### Memory
-
-> SQL string literals → single quotes.
-
----
-
-# Important SQL Decision Framework
-
-Before writing a complex query, ask:
-
-### 1. Do I need individual rows?
-
-```text
-YES
-→ normal SELECT
-→ window function if needed
-```
-
-### 2. Do I need one row per group?
-
-```text
-YES
-→ GROUP BY
-```
-
-### 3. Do I need to filter an aggregate?
-
-```text
-YES
-→ HAVING
-```
-
-### 4. Do I need an aggregate beside every individual row?
-
-```text
-YES
-→ Window function
-```
-
-### 5. Is my subquery returning one value?
-
-```text
-YES
-→ = / > / < etc.
-```
-
-### 6. Is my subquery returning multiple values?
-
-```text
-YES
-→ IN / ANY / ALL
-```
-
-### 7. Is the comparison against the employee's own group?
-
-```text
-YES
-→ Correlated subquery
-OR
-→ CTE + JOIN
-```
-
-### 8. Am I ranking employees inside groups?
-
-```text
-YES
-→ PARTITION BY
-```
-
-### 9. Am I ranking groups against each other?
-
-```text
-YES
-→ No PARTITION BY
-```
-
-### 10. Do ties matter?
-
-```text
-YES
-→ RANK / DENSE_RANK
-```
-
-### 11. Do I need unique positions?
-
-```text
-YES
-→ ROW_NUMBER
-```
+**Memory:**
+**Filter first → rank second.**
 
 ---
 
 # Ranking Cheat Sheet
 
-| Requirement                 | Function                            |
-| --------------------------- | ----------------------------------- |
-| Unique position             | `ROW_NUMBER()`                      |
-| Ranking with ties + gaps    | `RANK()`                            |
-| Ranking with ties + no gaps | `DENSE_RANK()`                      |
-| Highest per group + ties    | `RANK() = 1`                        |
-| Top N per group + ties      | `RANK() <= N`                       |
-| Nth-highest distinct value  | `DENSE_RANK() = N`                  |
-| Ranking groups by aggregate | Aggregate first → `RANK/DENSE_RANK` |
+| Requirement                        | Use                |
+| ---------------------------------- | ------------------ |
+| Unique position                    | `ROW_NUMBER()`     |
+| Ranking with ties + gaps           | `RANK()`           |
+| Ranking with ties + no gaps        | `DENSE_RANK()`     |
+| Highest per department + ties      | `RANK() = 1`       |
+| Top N per department + ties        | `RANK() <= N`      |
+| Nth distinct salary per department | `DENSE_RANK() = N` |
+
+---
+
+# Subquery Cheat Sheet
+
+| Requirement                | Pattern                 |
+| -------------------------- | ----------------------- |
+| One returned value         | Scalar subquery         |
+| Same department comparison | Correlated subquery     |
+| Multiple possible values   | `IN`                    |
+| Greater than every value   | `> ALL`                 |
+| Greater than at least one  | `> ANY`                 |
+| Highest value              | `MAX()`                 |
+| Overall average            | `AVG()` scalar subquery |
 
 ---
 
 # LIMIT / OFFSET Cheat Sheet
 
-```sql
-ORDER BY salary DESC
-LIMIT 1;
-```
-
-→ Highest
-
-```sql
-ORDER BY salary DESC
-OFFSET 1
-LIMIT 1;
-```
-
-→ Second-highest
-
-```sql
-ORDER BY salary DESC
-OFFSET 2
-LIMIT 1;
-```
-
-→ Third-highest
-
-### Formula
-
 ```text
-Nth-highest
-→ OFFSET N - 1
-→ LIMIT 1
+LIMIT 1
+→ one row
+
+LIMIT 2
+→ two rows
+
+OFFSET 1 LIMIT 1
+→ second row
+
+OFFSET 2 LIMIT 1
+→ third row
+
+OFFSET N-1 LIMIT 1
+→ Nth row
 ```
 
-For distinct salary:
+For **Nth-highest distinct salary**:
 
 ```sql
 SELECT DISTINCT salary
@@ -1368,182 +1022,247 @@ LIMIT 1;
 
 ---
 
-# GROUP BY vs Window Function
-
-## GROUP BY
-
-```sql
-SELECT department,
-       AVG(salary)
-FROM employees
-GROUP BY department;
-```
-
-Result:
+# JOIN Cheat Sheet
 
 ```text
-IT
-HR
-Finance
+INNER JOIN
+→ matching rows only
+
+LEFT JOIN
+→ all rows from left table
+
+RIGHT JOIN
+→ all rows from right table
+
+FULL JOIN
+→ all rows from both tables
 ```
 
-One row per department.
-
-## Window Function
-
-```sql
-SELECT name,
-       department,
-       salary,
-       AVG(salary) OVER (
-           PARTITION BY department
-       ) AS department_average
-FROM employees;
-```
-
-Result:
+### Interview pattern
 
 ```text
-Arun
-Charan
-Farhan
-...
+Need all departments
++ employees may not exist
+→ departments LEFT JOIN employees
 ```
-
-Every employee remains visible.
-
-### Interview Memory
-
-> **GROUP BY changes the number of rows.**
-
-> **Window functions calculate across rows without removing them.**
 
 ---
 
-# Aggregate → Rank Pattern
+# Mistake Log
 
-This is one of the most important patterns learned in the recent sessions.
-
-When asked:
-
-> Find the department with the highest/second-highest/third-highest total/average.
-
-Think:
+### 1. `LIMIT 2` ≠ second-highest
 
 ```text
-Employee rows
-      ↓
+LIMIT 2 → return two rows
+OFFSET 1 LIMIT 1 → second row
+```
+
+---
+
+### 2. LIMIT cannot solve Top-N per department
+
+```text
+LIMIT → overall result
+PARTITION BY + ranking → per group
+```
+
+---
+
+### 3. Scalar operator with multi-row subquery
+
+Wrong:
+
+```sql
+salary > (
+    SELECT AVG(salary)
+    FROM employees
+    GROUP BY department
+)
+```
+
+The subquery returns multiple values.
+
+Use:
+
+```text
+Correlated subquery
+OR
+CTE + JOIN
+OR
+ALL / ANY when appropriate
+```
+
+---
+
+### 4. Forgetting `PARTITION BY`
+
+For:
+
+> Top 2 employees in every department
+
+Use:
+
+```sql
+RANK() OVER (
+    PARTITION BY department
+    ORDER BY salary DESC
+)
+```
+
+---
+
+### 5. Ranking departments incorrectly
+
+Wrong:
+
+```sql
+DENSE_RANK() OVER (
+    PARTITION BY department
+    ORDER BY total_salary DESC
+)
+```
+
+Correct:
+
+```sql
+DENSE_RANK() OVER (
+    ORDER BY total_salary DESC
+)
+```
+
+when ranking departments against each other.
+
+---
+
+### 6. Ranking before aggregation
+
+Wrong thinking:
+
+```text
+RANK employees
+→ calculate department total
+```
+
+Correct:
+
+```text
 GROUP BY department
-      ↓
-SUM / AVG / COUNT
-      ↓
-Rank departments
-      ↓
-Filter rank
+→ SUM(salary)
+→ RANK/DENSE_RANK
 ```
 
-Example:
+---
+
+### 7. GROUP BY vs Window Function
+
+```text
+GROUP BY
+→ collapses rows
+
+Window function
+→ preserves rows
+```
+
+---
+
+### 8. Forgetting JOIN condition
+
+Wrong:
 
 ```sql
-SELECT department,
-       total_salary
-FROM (
-    SELECT department,
-           total_salary,
-           DENSE_RANK() OVER (
-               ORDER BY total_salary DESC
-           ) AS drnk
-    FROM (
-        SELECT department,
-               SUM(salary) AS total_salary
-        FROM employees
-        GROUP BY department
-    ) d
-) ranked
-WHERE drnk = 2;
+INNER JOIN departments d
 ```
 
-### Memory
+Correct:
 
-> **Aggregate first → rank second.**
+```sql
+INNER JOIN departments d
+    ON e.department_id = d.department_id
+```
+
+**Memory:**
+JOIN → immediately ask **"How are these tables related?"**
 
 ---
 
-# Current Progress
-
-| Topic                 | Understanding | Hands-on | Interview Ready |
-| --------------------- | ------------- | -------- | --------------- |
-| Filtering             | ✅             | ✅        | ✅               |
-| Aggregates            | ✅             | ✅        | ✅               |
-| GROUP BY              | ✅             | ✅        | ⚠️              |
-| HAVING                | ✅             | ⚠️       | ⚠️              |
-| JOINs                 | ✅             | ⚠️       | ⚠️              |
-| Scalar Subqueries     | ✅             | ✅        | ✅               |
-| Correlated Subqueries | ✅             | ⚠️       | ⚠️              |
-| CTEs                  | ✅             | ✅        | ⚠️              |
-| LIMIT / OFFSET        | ✅             | ✅        | ✅               |
-| ALL / ANY             | ✅             | ✅        | ✅               |
-| ROW_NUMBER            | ✅             | ⚠️       | ⚠️              |
-| RANK                  | ✅             | ⚠️       | ⚠️              |
-| DENSE_RANK            | ✅             | ⚠️       | ⚠️              |
-| Window Functions      | ✅             | ⚠️       | ⚠️              |
-| Multi-step SQL        | ⚠️            | ⚠️       | ⚠️              |
-| Aggregate → Rank      | ⚠️            | ⚠️       | ⚠️              |
-
----
-
-# Today's Recovery — Q36 to Q40
-
-| Question | Result | Main Concept                  |
-| -------- | ------ | ----------------------------- |
-| Q36      | ✅      | Scalar subquery               |
-| Q37      | ❌      | Window function vs GROUP BY   |
-| Q38      | ❌      | Aggregate first → rank groups |
-| Q39      | ✅      | RANK + PARTITION BY           |
-| Q40      | ✅      | Correlated + scalar subquery  |
-
-### Today's Score
-
-**3 / 5 fully correct**
-
-### Main Weak Area Identified
+### 9. Wrong table for salary
 
 ```text
-Ranking employees within groups
-        VS
-Ranking groups themselves
-```
-
-Remember:
-
-```text
-Employees within departments
-→ PARTITION BY department
-
-Departments against each other
-→ NO PARTITION BY
+employees → salary
+departments → department information
 ```
 
 ---
 
-# Interview Thinking Rule
+### 10. LEFT JOIN zero-count mistake
 
-Don't start with:
+Use:
 
-> "Which SQL syntax do I remember?"
+```sql
+COUNT(e.id)
+```
 
-Start with:
+instead of:
+
+```sql
+COUNT(*)
+```
+
+when counting employees through a LEFT JOIN and needing zero for unmatched departments.
+
+---
+
+### 11. RANK vs DENSE_RANK
 
 ```text
-1. What should one output row represent?
-2. Individual employee or department?
+RANK → gaps
+DENSE_RANK → no gaps
+```
+
+---
+
+### 12. Strings use single quotes
+
+Correct:
+
+```sql
+WHERE department = 'HR'
+```
+
+Not:
+
+```sql
+WHERE department = "HR"
+```
+
+---
+
+# Interview Decision Framework
+
+Before writing a complex SQL query:
+
+```text
+1. What should ONE output row represent?
+
+2. Employee or department?
+
 3. Do I need aggregation?
-4. Do I need to preserve individual rows?
-5. Is the comparison overall or per department?
+
+4. Should individual rows remain?
+
+5. Is the comparison overall or per group?
+
 6. Does the subquery return one value or many?
+
 7. Are ties required?
-8. Am I ranking employees or ranking groups?
+
+8. Am I ranking employees or groups?
+
 9. Do I need to aggregate before ranking?
+
+10. Do unmatched rows need to remain?
+
+11. Which JOIN preserves the required rows?
 ```
 
 Then choose:
@@ -1556,9 +1275,9 @@ JOIN
 Subquery
 Correlated Subquery
 CTE
+ROW_NUMBER
 RANK
 DENSE_RANK
-ROW_NUMBER
 PARTITION BY
 ALL
 ANY
@@ -1566,4 +1285,12 @@ LIMIT
 OFFSET
 ```
 
-> **Final goal:** Give me an unfamiliar SQL problem and I should be able to identify the approach before writing the query.
+---
+
+# Final Goal
+
+> **Given an unfamiliar SQL problem, identify the required approach first and then write the query.**
+
+The priority remains:
+
+**HANDS-ON > THEORY**
